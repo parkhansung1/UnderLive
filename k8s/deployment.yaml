@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
       - name: web-container
-        image: 10.10.0.150/underlive/underlive-service:latest # 하버 주소 입력
+        image: 10.10.0.243/underlive/underlive-service:latest # 하버 주소 입력
         ports:
         - containerPort: 80
