@@ -13,7 +13,6 @@ pipeline {
         GITHUB_CRED_ID = "github-token"
         HARBOR_CRED_ID = "harbor-login"
         
-        // 배포를 ArgoCD가 하므로 사실상 KUBECONFIG 설정은 여기서 필요 없게 되었습니다.
     }
 
     stages {
