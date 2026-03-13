@@ -27,7 +27,7 @@ pipeline {
         stage('2. Docker Build') {
             steps {
                 script {
-                    sh "docker build -t ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ."
+                    sh "docker build -f firstcompany/Dockerfile -t ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ."
                     sh "docker tag ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:latest"
                 }
             }
