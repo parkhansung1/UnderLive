@@ -44,23 +44,23 @@ pipeline {
             }
         }
 
-        stage('4. Update K8S Manifest') {
+stage('4. Update K8S Manifest') {
             steps {
                 script {
-                    // deployment.yaml 수정
-                    sh "sed -i 's|image:.*|image: ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}|g' firstcompany/streaming/k8s/deployment.yaml"
-                    
                     withCredentials([usernamePassword(credentialsId: "${GITHUB_CRED_ID}", passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+                        
                         sh "git config user.email jenkins@underlive.com"
                         sh "git config user.name jenkins"
                         
-                        // [핵심] 푸시 전 충돌 방지를 위해 최신 내역을 가져옴
+                        // 1. 수정하기 전에 먼저 최신 코드를 가져옵니다.
                         sh "git pull https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/parkhansung1/UnderLive.git main --rebase"
                         
+                        // 2. 그 다음 파일을 수정합니다.
+                        sh "sed -i 's|image:.*|image: ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}|g' firstcompany/streaming/k8s/deployment.yaml"
+                        
+                        // 3. 수정된 내용을 커밋하고 푸시합니다.
                         sh "git add firstcompany/streaming/k8s/deployment.yaml"
                         sh "git commit -m 'Update image tag to ${BUILD_NUMBER}' || true"
-                        
-                        // 인증 정보를 포함한 URL로 푸시
                         sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/parkhansung1/UnderLive.git main"
                     }
                 }
@@ -74,3 +74,4 @@ pipeline {
         }
     } 
 }
+
