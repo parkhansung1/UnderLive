@@ -12,11 +12,11 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
  
 # 2. 의존성 파일 복사 및 설치
-COPY package*.json ./
+COPY firstcompany/streaming/src/package*.json ./
 RUN npm install
  
 # 3. 소스 코드 전체 복사 (html 폴더 포함)
-COPY . .
+COPY firstcompany/streaming/src/ .
  
 # 4. 포트 설정 및 서버 실행
 EXPOSE 3000
