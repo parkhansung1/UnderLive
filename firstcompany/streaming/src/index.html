@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Under Live - Midnight Studio</title>
+    <style>
+        :root { --bg-dark: #050A14; --card-dark: #0B1021; --text-white: #FFFFFF; --point-neon: #00FFA3; --point-purple: #A855F7; --border-dark: #1F293A; }
+        body { margin: 0; background-color: var(--bg-dark); color: var(--text-white); font-family: 'Pretendard', sans-serif; font-weight: 700; }
+        .top-nav { height: 70px; background: var(--card-dark); display: flex; justify-content: space-between; align-items: center; padding: 0 30px; border-bottom: 2px solid var(--point-purple); position: sticky; top: 0; z-index: 1000; }
+        .logo { font-size: 28px; font-weight: 800; color: var(--point-neon); cursor: pointer; }
+        .auth-section button { padding: 8px 18px; border-radius: 25px; border: 2px solid var(--point-neon); background: transparent; color: var(--point-neon); cursor: pointer; font-weight: 800; margin-left: 10px; }
+        .container { display: flex; min-height: calc(100vh - 70px); }
+        .sidebar { width: 260px; background: var(--card-dark); padding: 30px 20px; border-right: 2px solid var(--point-purple); flex-shrink: 0; }
+        .sidebar-item { padding: 15px 20px; border-radius: 15px; margin-bottom: 12px; cursor: pointer; color: #E0E0E0; font-size: 16px; transition: 0.3s; }
+        .sidebar-item:hover { background: rgba(168, 85, 247, 0.15); color: var(--point-purple); }
+        .main-content { flex: 1; padding: 40px; }
+        .chat-area { flex: 1; min-width: 350px; background: var(--card-dark); border-radius: 30px; display: flex; flex-direction: column; height: 600px; border: 2px solid var(--border-dark); overflow: hidden; }
+        video { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 25px; border: 4px solid var(--card-dark); }
+        #chatMessages { flex: 1; overflow-y: auto; padding: 25px; list-style: none; margin: 0; background: #080C18; }
+        .chat-input-area { padding: 20px; background: var(--card-dark); border-top: 2px solid var(--border-dark); display: flex; gap: 12px; }
+        input { flex: 1; background: #080C18; border: 2px solid var(--border-dark); padding: 15px; border-radius: 15px; color: var(--text-white); font-weight: 700; outline: none; }
+        .btn-send { background: var(--point-neon); color: var(--bg-dark); border: none; padding: 0 25px; border-radius: 15px; font-weight: 800; cursor: pointer; }
+        .stream-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 35px; margin-top: 20px; }
+        .stream-item { background: var(--card-dark); padding: 20px; border-radius: 30px; cursor: pointer; transition: 0.3s; border: 3px solid transparent; }
+        .stream-item:hover { transform: translateY(-10px); border-color: var(--point-neon); }
+        .stream-item.active { border-color: var(--point-neon) !important; box-shadow: 0 0 20px rgba(0, 255, 163, 0.3); background: rgba(0, 255, 163, 0.05); }
+        .watching-badge { background: var(--point-purple); color: white; padding: 3px 8px; border-radius: 8px; font-size: 11px; margin-left: 8px; vertical-align: middle; }
+        .thumbnail-img { width: 100%; aspect-ratio: 16/9; border-radius: 20px; object-fit: cover; }
+        .live-badge { background: var(--point-neon); color: var(--bg-dark); padding: 6px 12px; border-radius: 10px; font-size: 12px; margin-top: 10px; display: inline-block; }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="logo" onclick="location.href='/'">🌿 Under Live</div>
+        <div id="authSection" class="auth-section"></div>
+    </nav>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-item" onclick="location.href='/'">🏠 홈 시스템</div>
+            <div class="sidebar-item" onclick="location.href='/studio.html'">🎥 마이 스튜디오</div>
+        </aside>
+        <main class="main-content">
+            <div id="playerSection" style="display:none; margin-bottom:60px;">
+                <h2 id="playingTitle" style="color: var(--point-purple); font-size: 28px; margin-bottom: 20px;">방송 시청 중</h2>
+                <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+                    <div style="flex: 3; min-width: 600px;"><video id="video" controls autoplay muted></video></div>
+                    <div class="chat-area">
+                        <div style="padding:15px 20px; background:var(--bg-dark); border-bottom:1px solid var(--border-dark); color:var(--point-neon); display: flex; justify-content: space-between; align-items: center;">
+                            <span>실시간 채팅</span>
+                            <span id="userCount" style="color: var(--text-white); font-size: 13px; font-weight: 400;">👥 0명 시청 중</span>
+                        </div>
+                        <ul id="chatMessages"></ul>
+                        <div class="chat-input-area">
+                            <input type="text" id="chatInput" placeholder="메시지 입력...">
+                            <button class="btn-send" onclick="sendChat()">전송</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <h2 style="font-size: 28px; margin-top: 0;">라이브 채널</h2>
+            <div id="streamList" class="stream-list"></div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const chatId = localStorage.getItem('chatId');
+        let currentRoom = "";
+        let hls = new Hls();
+
+        document.getElementById('authSection').innerHTML = chatId
+            ? `<span style="margin-right:10px;">${chatId}님</span><button onclick="localStorage.clear(); location.href='/';">로그아웃</button>`
+            : `<button onclick="location.href='/login.html'">로그인</button><button onclick="location.href='/join.html'">회원가입</button>`;
+
+        // [추가] 채팅 메시지를 화면에 추가하는 공통 함수
+        function appendMessage(name, msg) {
+            const li = document.createElement('li');
+            li.style.marginBottom = "8px";
+            li.innerHTML = `<span style="color:var(--point-neon)">${name}</span>: ${msg}`;
+            const chatBox = document.getElementById('chatMessages');
+            chatBox.appendChild(li);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function playStream(key, name) {
+            document.getElementById('playerSection').style.display = 'block';
+            document.getElementById('playingTitle').innerText = `🌿 ${name}님의 방송 시청 중`;
+            currentRoom = key;
+
+            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?room=' + key;
+            window.history.pushState({ path: newUrl }, '', newUrl);
+
+            const video = document.getElementById('video');
+            hls.destroy(); hls = new Hls();
+            hls.loadSource(`${window.location.origin}/hls/${key}.m3u8`);
+            hls.attachMedia(video);
+
+            socket.emit('join room', key);
+            
+            // [수정] 방 입장 시 이전 채팅 기록 불러오기
+            document.getElementById('chatMessages').innerHTML = "";
+            try {
+                const res = await fetch(`/api/chats/${key}`);
+                const data = await res.json();
+                if (data.success) {
+                    data.chats.forEach(c => appendMessage(c.chat_id, c.message));
+                }
+            } catch (e) { console.error("이전 채팅 로드 실패", e); }
+
+            loadStreams();
+            window.scrollTo({top:0, behavior:'smooth'});
+        }
+
+        async function loadStreams() {
+            try {
+                const res = await fetch('/api/streams');
+                const data = await res.json();
+                const listEl = document.getElementById('streamList');
+                listEl.innerHTML = data.streams?.length ? '' : '<p>라이브 중인 채널이 없습니다.</p>';
+
+                data.streams?.forEach(s => {
+                    const div = document.createElement('div');
+                    const isWatching = (currentRoom === s.stream_key);
+                    div.className = `stream-item ${isWatching ? 'active' : ''}`;
+                    div.innerHTML = `<img src="/thumbnails/${s.stream_key}.jpg" class="thumbnail-img" onerror="this.src='https://via.placeholder.com/320x180/0B1021/00FFA3?text=LIVE'"><div style="margin-top:15px;"><strong style="${isWatching ? 'color:var(--point-neon);' : ''}">${s.chat_id}님의 방송 ${isWatching ? '<span class="watching-badge">시청 중</span>' : ''}</strong><br><div class="live-badge" style="${isWatching ? 'background:var(--point-purple); color:white;' : ''}">● LIVE</div></div>`;
+                    div.onclick = () => playStream(s.stream_key, s.chat_id);
+                    listEl.appendChild(div);
+                });
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const roomParam = urlParams.get('room');
+                if (roomParam && !currentRoom) {
+                    const target = data.streams?.find(s => s.stream_key === roomParam);
+                    if (target) setTimeout(() => playStream(target.stream_key, target.chat_id), 300);
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function sendChat() {
+            const input = document.getElementById('chatInput');
+            if (!chatId) {
+                alert("채팅방 입력 시 익명 사용자는 채팅이 불가하고 로그인 후 사용 가능합니다.");
+                location.href = '/login.html';
+                return;
+            }
+            if(input.value.trim() && currentRoom) {
+                // [수정] 서버의 INSERT 쿼리 변수명(chatId, message)과 일치하도록 전송
+                socket.emit('chat message', { 
+                    chatId: chatId, 
+                    message: input.value, 
+                    room: currentRoom 
+                });
+                input.value = '';
+            }
+        }
+
+        document.getElementById('chatInput').onkeypress = (e) => { if (e.key === 'Enter') sendChat(); };
+
+        socket.on('chat message', (data) => {
+            // [수정] 서버에서 전달받는 데이터 구조에 맞게 변경
+            const name = data.chatId || data.name;
+            const msg = data.message || data.msg;
+            appendMessage(name, msg);
+        });
+
+        socket.on('user count', (count) => {
+            document.getElementById('userCount').innerText = `👥 ${count}명 시청 중`;
+        });
+
+        loadStreams();
+        setInterval(loadStreams, 5000);
+    </script>
+</body>
+</html>
