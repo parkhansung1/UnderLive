@@ -45,21 +45,21 @@ pipeline {
             }
         }
     } 
-stage('4. Update K8S Manifest') {
+        stage('4. Update K8S Manifest') {
             steps {
                 script {
-                    // 1. 파일 내 이미지 태그 수정
+                    // 1. 이미지 태그 수정
                     sh "sed -i 's|image:.*|image: ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}|g' firstcompany/streaming/k8s/deployment.yaml"
                     
-                    // 2. 젠킨스에 저장된 'github-token' 인증 정보를 불러와서 변수에 담음
-                    withCredentials([usernamePassword(credentialsId: "${GITHUB_CRED_ID}", passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+                    // 2. 실제 이름인 'github-auth'를 사용하여 인증 정보 로드
+                    withCredentials([usernamePassword(credentialsId: 'github-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
                         
                         sh "git config user.email jenkins@underlive.com"
                         sh "git config user.name jenkins"
                         sh "git add firstcompany/streaming/k8s/deployment.yaml"
                         sh "git commit -m 'Update image tag to ${BUILD_NUMBER}' || true"
                         
-                        // [중요] origin 대신 인증 정보가 포함된 URL로 직접 푸시합니다.
+                        // [핵심] 변수를 주소에 직접 넣어서 푸시합니다.
                         sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/parkhansung1/UnderLive.git main"
                     }
                 }
