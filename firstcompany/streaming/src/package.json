@@ -1,4 +1,4 @@
-cat <<EOF > package.json
+
 {
   "name": "underlive-streaming",
   "version": "1.0.0",
@@ -14,4 +14,4 @@ cat <<EOF > package.json
     "start": "node server.js"
   }
 }
-EOF
+
