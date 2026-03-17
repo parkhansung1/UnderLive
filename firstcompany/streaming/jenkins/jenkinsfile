@@ -21,7 +21,7 @@ pipeline {
             steps {
                 script {
                     // Dockerfiles 폴더 안의 파일을 지정하여 빌드
-                    sh "docker build -t ${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${TAG} -f streaming/Dockerfiles/Dockerfile ."
+                    sh "docker build -t ${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${TAG} -f firstcompany/streaming/Dockerfiles/Dockerfile ."
                 }
             }
         }
@@ -42,13 +42,13 @@ pipeline {
                 script {
                     // k8s 폴더 내의 deployment.yaml 이미지 태그를 방금 빌드한 것으로 변경
                     // ArgoCD가 이 변경사항을 감지하여 자동 배포하게 됩니다.
-                    sh "sed -i 's|image:.*|image: ${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${TAG}|g' streaming/k8s/deployment.yaml"
+                    sh "sed -i 's|image:.*|image: ${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${TAG}|g' firstcompany/streaming/k8s/deployment.yaml"
                     
                     // 변경된 YAML을 다시 Git에 커밋 & 푸시
                     sh """
                         git config user.email "jenkins@underlive.com"
                         git config user.name "jenkins"
-                        git add streaming/k8s/deployment.yaml
+                        git add firstcompany/streaming/k8s/deployment.yaml
                         git commit -m 'image tag update to ${TAG}'
                         git push origin main
                     """
