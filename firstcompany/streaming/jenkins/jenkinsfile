@@ -30,7 +30,7 @@ pipeline {
             steps {
                 script {
                     // 하버 로그인 및 푸시
-                    docker.withRegistry("https://${REGISTRY}", "${HARBOR_CREDS}") {
+                    docker.withRegistry("http://${REGISTRY}", "${HARBOR_CREDS}") {
                         sh "docker push ${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${TAG}"
                     }
                 }
