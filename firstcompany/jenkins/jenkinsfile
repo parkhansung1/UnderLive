@@ -1,3 +1,13 @@
+로그를 다시 보니 범인이 딱 보입니다! 괄호(}) 위치가 잘못되어서 4단계가 아예 실행조차 안 되고 있거나, 환경 변수 설정이 꼬여 있습니다.
+
+사용자님이 주신 코드를 자세히 보면 stage('3. Harbor Push')가 들어있는 stages 블록을 너무 일찍 닫아버리셨어요. 4단계가 stages 밖에 둥둥 떠 있는 상태입니다.
+
+그리고 상단 environment에서 정의한 GITHUB_CRED_ID 값과 실제 사용하신 github-auth가 충돌할 수 있으니 하나로 통일해야 합니다.
+
+🛠️ 바로 복사해서 전체 덮어쓰기 하세요 (수정 완료)
+이 코드는 중괄호 위치를 맞추고, 환경 변수 이름을 github-auth로 통일했습니다.
+
+Groovy
 pipeline {
     agent any
 
@@ -6,13 +16,12 @@ pipeline {
     }
 
     environment {
-        HARBOR_URL = "harbor.underlive.com"
-        PROJECT_NAME = "underlive" 
-        IMAGE_NAME = "underlive-service"
+        HARBOR_URL = "10.10.0.160" // 로그에 찍힌 IP로 수정
+        PROJECT_NAME = "test"       // 로그에 찍힌 프로젝트명으로 수정
+        IMAGE_NAME = "streaming-app" // 로그에 찍힌 이미지명으로 수정
         
-        GITHUB_CRED_ID = "github-token"
+        GITHUB_CRED_ID = "github-auth" // 실제 크레덴셜 ID와 일치시킴
         HARBOR_CRED_ID = "harbor-login"
-        
     }
 
     stages {
@@ -27,7 +36,7 @@ pipeline {
         stage('2. Docker Build') {
             steps {
                 script {
-                    sh "docker build -f firstcompany/Dockerfiles/Dockerfile -t ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ."
+                    sh "docker build -f firstcompany/streaming/Dockerfiles/Dockerfile -t ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ."
                     sh "docker tag ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:latest"
                 }
             }
@@ -44,31 +53,31 @@ pipeline {
                 }
             }
         }
-    } 
+
         stage('4. Update K8S Manifest') {
             steps {
                 script {
                     // 1. 이미지 태그 수정
                     sh "sed -i 's|image:.*|image: ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}|g' firstcompany/streaming/k8s/deployment.yaml"
                     
-                    // 2. 실제 이름인 'github-auth'를 사용하여 인증 정보 로드
-                    withCredentials([usernamePassword(credentialsId: 'github-auth', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
-                        
+                    // 2. 인증 정보 로드 및 Push
+                    withCredentials([usernamePassword(credentialsId: "${GITHUB_CRED_ID}", passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
                         sh "git config user.email jenkins@underlive.com"
                         sh "git config user.name jenkins"
                         sh "git add firstcompany/streaming/k8s/deployment.yaml"
                         sh "git commit -m 'Update image tag to ${BUILD_NUMBER}' || true"
                         
-                        // [핵심] 변수를 주소에 직접 넣어서 푸시합니다.
+                        // origin 대신 전체 URL 사용
                         sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/parkhansung1/UnderLive.git main"
                     }
                 }
             }
         }
+    } // stages 블록이 여기서 끝나야 합니다.
+
     post {
         always {
-            // 깔끔하게 로그아웃
-            sh "docker logout ${HARBOR_URL}"
+            sh "docker logout ${HARBOR_URL} || true"
         }
     }
-} 
+}
