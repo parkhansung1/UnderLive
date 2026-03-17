@@ -1,1 +1,74 @@
+pipeline {
+    agent any
+
+    triggers {
+        githubPush()
+    }
+
+    environment {
+        HARBOR_URL = "10.10.0.160" // 로그에 찍힌 IP로 수정
+        PROJECT_NAME = "test"       // 로그에 찍힌 프로젝트명으로 수정
+        IMAGE_NAME = "streaming-app" // 로그에 찍힌 이미지명으로 수정
+        
+        GITHUB_CRED_ID = "github-auth" // 실제 크레덴셜 ID와 일치시킴
+        HARBOR_CRED_ID = "harbor-login"
+    }
+
+    stages {
+        stage('1. Git Checkout') {
+            steps {
+                git branch: 'main', 
+                    credentialsId: "${GITHUB_CRED_ID}", 
+                    url: "https://github.com/parkhansung1/UnderLive.git"
+            }
+        }
+
+        stage('2. Docker Build') {
+            steps {
+                script {
+                    sh "docker build -f firstcompany/streaming/Dockerfiles/Dockerfile -t ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ."
+                    sh "docker tag ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:latest"
+                }
+            }
+        }
+
+        stage('3. Harbor Push') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: "${HARBOR_CRED_ID}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                        sh "echo '${PASS}' | docker login ${HARBOR_URL} -u ${USER} --password-stdin"
+                        sh "docker push ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                        sh "docker push ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:latest"
+                    }
+                }
+            }
+        }
+
+        stage('4. Update K8S Manifest') {
+            steps {
+                script {
+                    // 1. 이미지 태그 수정
+                    sh "sed -i 's|image:.*|image: ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}|g' firstcompany/streaming/k8s/deployment.yaml"
+                    
+                    // 2. 인증 정보 로드 및 Push
+                    withCredentials([usernamePassword(credentialsId: "${GITHUB_CRED_ID}", passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+                        sh "git config user.email jenkins@underlive.com"
+                        sh "git config user.name jenkins"
+                        sh "git add firstcompany/streaming/k8s/deployment.yaml"
+                        sh "git commit -m 'Update image tag to ${BUILD_NUMBER}' || true"
+                        
+                        // origin 대신 전체 URL 사용
+                        sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/parkhansung1/UnderLive.git main"
+                    }
+                }
+            }
+        }
+    } // stages 블록이 여기서 끝나야 합니다.
+
+    post {
+        always {
+            sh "docker logout ${HARBOR_URL} || true"
+        }
+    }
+}
 
