@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: streaming-container
-        image: 10.10.0.160/test/streaming-app:200
+        image: 10.10.0.160/test/streaming-app:201
         ports:
         - containerPort: 3000
         resources:
