@@ -44,26 +44,29 @@ pipeline {
             }
         }
 
-        stage('4. Update K8S Manifest') {
+stage('4. Update K8S Manifest') {
             steps {
                 script {
-                    // 경로가 firstcompany/streaming/k8s/deployment.yaml 인지 꼭 확인하세요!
                     sh "sed -i 's|image:.*|image: ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}|g' firstcompany/streaming/k8s/deployment.yaml"
                     
                     withCredentials([usernamePassword(credentialsId: "${GITHUB_CRED_ID}", passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
                         sh "git config user.email jenkins@underlive.com"
                         sh "git config user.name jenkins"
+                        
+                        // [추가] 푸시 전 원격의 최신 변경사항을 가져와서 합칩니다.
+                        // rebase를 쓰면 커밋 로그가 깔끔하게 유지됩니다.
+                        sh "git pull https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/parkhansung1/UnderLive.git main --rebase"
+                        
                         sh "git add firstcompany/streaming/k8s/deployment.yaml"
                         sh "git commit -m 'Update image tag to ${BUILD_NUMBER}' || true"
                         
-                        // origin 대신 인증 정보가 포함된 URL을 직접 사용
                         sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/parkhansung1/UnderLive.git main"
                     }
                 }
             }
         }
-    } // 1. stages 블록 닫기
-
+    }
+}
     post {
         always {
             sh "docker logout ${HARBOR_URL} || true"
