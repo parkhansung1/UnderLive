@@ -6,11 +6,11 @@ pipeline {
     }
 
     environment {
-        HARBOR_URL = "10.10.0.160" // 로그에 찍힌 IP로 수정
-        PROJECT_NAME = "test"       // 로그에 찍힌 프로젝트명으로 수정
-        IMAGE_NAME = "streaming-app" // 로그에 찍힌 이미지명으로 수정
+        HARBOR_URL = "10.10.0.160" 
+        PROJECT_NAME = "test"       
+        IMAGE_NAME = "streaming-app" 
         
-        GITHUB_CRED_ID = "github-auth" // 실제 크레덴셜 ID와 일치시킴
+        GITHUB_CRED_ID = "github-auth" 
         HARBOR_CRED_ID = "harbor-login"
     }
 
@@ -44,30 +44,29 @@ pipeline {
             }
         }
 
-      stage('4. Update K8S Manifest') {
-    steps {
-        script {
-            // 파일이 있는지 먼저 확인하고, 있으면 수정합니다.
-            // 만약 이 경로가 틀리면 'No such file or directory' 에러가 로그에 명확히 뜰 겁니다.
-            sh "sed -i 's|image:.*|image: ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}|g' firstcompany/streaming/k8s/deployment.yaml"
-            
-            withCredentials([usernamePassword(credentialsId: "${GITHUB_CRED_ID}", passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
-                sh "git config user.email jenkins@underlive.com"
-                sh "git config user.name jenkins"
-                
-                // 파일 추가 시에도 동일한 경로 사용
-                sh "git add firstcompany/streaming/k8s/deployment.yaml"
-                
-                sh "git commit -m 'Update image tag to ${BUILD_NUMBER}' || true"
-                sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/parkhansung1/UnderLive.git main"
+        stage('4. Update K8S Manifest') {
+            steps {
+                script {
+                    // 경로가 firstcompany/streaming/k8s/deployment.yaml 인지 꼭 확인하세요!
+                    sh "sed -i 's|image:.*|image: ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}|g' firstcompany/streaming/k8s/deployment.yaml"
+                    
+                    withCredentials([usernamePassword(credentialsId: "${GITHUB_CRED_ID}", passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+                        sh "git config user.email jenkins@underlive.com"
+                        sh "git config user.name jenkins"
+                        sh "git add firstcompany/streaming/k8s/deployment.yaml"
+                        sh "git commit -m 'Update image tag to ${BUILD_NUMBER}' || true"
+                        
+                        // origin 대신 인증 정보가 포함된 URL을 직접 사용
+                        sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/parkhansung1/UnderLive.git main"
+                    }
+                }
             }
         }
-    }
-}블록이 여기서 끝나야 합니다.
+    } // 1. stages 블록 닫기
 
     post {
         always {
             sh "docker logout ${HARBOR_URL} || true"
         }
-    }
-}
+    } // 2. post 블록 닫기
+} // 3. pipeline 전체 블록 닫기 (이게 빠졌을 가능성이 높습니다)
