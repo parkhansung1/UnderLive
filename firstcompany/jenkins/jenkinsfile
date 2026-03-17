@@ -6,7 +6,7 @@ pipeline {
     }
 
     environment {
-        HARBOR_URL = "10.10.0.243"
+        HARBOR_URL = "harbor.underlive.com"
         PROJECT_NAME = "underlive" 
         IMAGE_NAME = "underlive-service"
         
