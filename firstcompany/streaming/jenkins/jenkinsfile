@@ -3,8 +3,9 @@ pipeline {
     
     environment {
         // 테스트용 하버 정보 세팅
-        REGISTRY = '10.10.0.160:80'
-        PROJECT = 'underlive'
+        REGISTRY = '10.10.0.160'
+        PORT    = '80'
+        PROJECT = 'test'
         IMAGE_NAME = 'streaming-app'
         TAG = "${env.BUILD_NUMBER}" // 빌드 번호를 태그로 사용
         HARBOR_CREDS = 'harbor-login' // Jenkins에 등록한 ID
