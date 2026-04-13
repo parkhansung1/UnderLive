@@ -1,0 +1,77 @@
+pipeline {
+    agent any
+
+    triggers {
+        githubPush()
+    }
+
+    environment {
+        HARBOR_URL = "10.10.0.160" 
+        PROJECT_NAME = "test"       
+        IMAGE_NAME = "streaming-app" 
+        
+        GITHUB_CRED_ID = "github-auth" 
+        HARBOR_CRED_ID = "harbor-login"
+    }
+
+    stages {
+        stage('1. Git Checkout') {
+            steps {
+                git branch: 'main', 
+                    credentialsId: "${GITHUB_CRED_ID}", 
+                    url: "https://github.com/parkhansung1/UnderLive.git"
+            }
+        }
+
+        stage('2. Docker Build') {
+            steps {
+                script {
+                    sh "docker build -f firstcompany/streaming/Dockerfiles/Dockerfile -t ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ."
+                    sh "docker tag ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER} ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:latest"
+                }
+            }
+        }
+
+        stage('3. Harbor Push') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: "${HARBOR_CRED_ID}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                        sh "echo '${PASS}' | docker login ${HARBOR_URL} -u ${USER} --password-stdin"
+                        sh "docker push ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                        sh "docker push ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:latest"
+                    }
+                }
+            }
+        }
+
+stage('4. Update K8S Manifest') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: "${GITHUB_CRED_ID}", passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+                        
+                        sh "git config user.email jenkins@underlive.com"
+                        sh "git config user.name jenkins"
+                        
+                        // 1. 수정하기 전에 먼저 최신 코드를 가져옵니다.
+                        sh "git pull https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/parkhansung1/UnderLive.git main --rebase"
+                        
+                        // 2. 그 다음 파일을 수정합니다.
+                        sh "sed -i 's|image:.*|image: ${HARBOR_URL}/${PROJECT_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}|g' firstcompany/streaming/k8s/deployment.yaml"
+                        
+                        // 3. 수정된 내용을 커밋하고 푸시합니다.
+                        sh "git add firstcompany/streaming/k8s/deployment.yaml"
+                        sh "git commit -m 'Update image tag to ${BUILD_NUMBER}' || true"
+                        sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/parkhansung1/UnderLive.git main"
+                    }
+                }
+            }
+        }
+    } 
+
+    post {
+        always {
+            sh "docker logout ${HARBOR_URL} || true"
+        }
+    } 
+}
+

@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streaming-app
+  namespace: default
+spec:
+  # HPA를 쓸 예정이므로 replicas는 초기값 1로 설정합니다.
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: streaming
+  template:
+    metadata:
+      labels:
+        app: streaming
+    spec:
+      containers:
+      - name: streaming-container
+        image: 10.10.0.160/test/streaming-app:229
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+      imagePullSecrets:
+      - name: harbor-test-key

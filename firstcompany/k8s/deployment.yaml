@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: underlive-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: underlive-web
+  template:
+    metadata:
+      labels:
+        app: underlive-web
+    spec:
+      containers:
+      - name: web-container
+        image: 10.10.0.243/underlive/underlive-service:latest # 하버 주소 입력
+        ports:
+        - containerPort: 80

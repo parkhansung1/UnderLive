@@ -1,0 +1,46 @@
+version: '3.8'
+services:
+  db:
+    image: mariadb
+    container_name: under-live-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 'P@ssw0rd'
+      MYSQL_DATABASE: 'under_live'
+    volumes:
+      - under_live_db_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  app:
+    image: 10.10.0.160/test/under-live-app:latest
+    container_name: under-live-app
+    restart: always
+    expose:
+      - "3000"
+    volumes:
+      - /tmp/hls:/tmp/hls
+      - /tmp/thumbnails:/tmp/thumbnails
+    depends_on:
+      db:
+        condition: service_healthy
+
+  rtmp:
+    image: 10.10.0.160/test/under-live-rtmp:latest
+    container_name: under-live-rtmp
+    restart: always
+    ports:
+      - "1935:1935"
+      - "80:80"
+    volumes:
+      - /tmp/hls:/tmp/hls
+    depends_on:
+      - app
+
+volumes:
+  under_live_db_data:
